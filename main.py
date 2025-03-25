@@ -28,7 +28,7 @@ def update_sidebar():
     st.sidebar.header("Atribuir Ordem")
     ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
     
-    status_options = ["Em planejamento", "AR","Doc CQ", "Materiais", "Definição MA", "Outros","Concluído"]
+    status_options = ["Em planejamento", "AR","Doc CQ", "IBTUG","Materiais","Definição MA","SMS", "Outros","Concluído"]
     
     if ordem:
         # Botão para limpar os dados dos campos abaixo de "Número da Ordem"
