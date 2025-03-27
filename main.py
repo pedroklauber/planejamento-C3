@@ -6,15 +6,15 @@ from datetime import datetime
 # --- CONFIGURAÇÃO E ARQUIVOS ---
 st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 
-CSV_FILE = "ordens_status.csv"
-CSV_PRIORIZA = "prioriza.csv"
+CSV_FILE = "ordens_status.csv"    # Banco de dados fixo onde os dados serão salvos
+CSV_PRIORIZA = "prioriza.csv"       # Banco de dados de referência (não alterado pelo formulário)
 
 if not os.path.exists(CSV_FILE):
     pd.DataFrame(columns=["Ordem", "Planejador", "Status", "Informações", "Última Atualização"]).to_csv(CSV_FILE, index=False)
 if not os.path.exists(CSV_PRIORIZA):
     pd.DataFrame(columns=["ORDEM", "DESCRICAO", "GPM", "Status"]).to_csv(CSV_PRIORIZA, index=False)
 
-# --- FUNÇÕES ---
+# --- FUNÇÕES DE LEITURA E SALVAMENTO ---
 def load_data():
     df = pd.read_csv(CSV_FILE, dtype=str)
     df.columns = df.columns.str.strip()
@@ -33,7 +33,7 @@ def load_prioriza():
         df.rename(columns={"ORDEM": "Ordem"}, inplace=True)
     if "DESCRICAO" in df.columns and "Serviço_prioriza" not in df.columns:
         df.rename(columns={"DESCRICAO": "Serviço_prioriza"}, inplace=True)
-    # Filtra apenas onde Status está em uma das opções desejadas
+    # Utiliza apenas as linhas de interesse (apenas referência)
     df = df[df["Status"].isin(["Microplanejamento", "Falta material", "TO GPI - Aguarda TRIA", "Programável", "TM GPI - Aguarda MAN"])]
     return df
 
@@ -144,7 +144,6 @@ if ordem:
 
 # --- ÁREA PRINCIPAL: Visualização ---
 st.header("Planejamento de Ordens")
-
 st.subheader("Filtro de GPM (visualização)")
 df_prioriza_for_filter = load_prioriza()
 gpm_values = df_prioriza_for_filter["GPM"].dropna().unique().tolist()
@@ -162,7 +161,7 @@ df_merged = pd.merge(df_status, df_prioriza, on="Ordem", how="outer")
 if "Serviço_prioriza" not in df_merged.columns:
     df_merged["Serviço_prioriza"] = ""
 
-colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM", "Status","Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
 
 df_final = df_final.rename(columns={
