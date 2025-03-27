@@ -162,7 +162,7 @@ df_merged = pd.merge(df_status, df_prioriza, on="Ordem", how="outer")
 if "Serviço_prioriza" not in df_merged.columns:
     df_merged["Serviço_prioriza"] = ""
 
-colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Status","Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM", "Status","Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
 
 df_final = df_final.rename(columns={
