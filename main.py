@@ -160,7 +160,7 @@ for col in ["Serviço_prioriza"]:
     if col not in df_merged.columns:
         df_merged[col] = ""
 
-colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
 
 
