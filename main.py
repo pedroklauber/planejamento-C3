@@ -16,7 +16,7 @@ if not os.path.exists(CSV_PRIORIZA):
 
 # --- FUNÇÕES ---
 def load_data():
-    df = pd.read_csv(CSV_FILE)
+    df = pd.read_csv(CSV_FILE, dtype=str)
     df.columns = df.columns.str.strip()
     return df
 
@@ -27,43 +27,48 @@ def save_data(df):
         st.error(f"Erro ao salvar o arquivo: {e}")
 
 def load_prioriza():
-    df = pd.read_csv(CSV_PRIORIZA)
+    df = pd.read_csv(CSV_PRIORIZA, dtype=str)
     df.columns = df.columns.str.strip()
     if "ORDEM" in df.columns:
         df.rename(columns={"ORDEM": "Ordem"}, inplace=True)
     if "DESCRICAO" in df.columns and "Serviço_prioriza" not in df.columns:
         df.rename(columns={"DESCRICAO": "Serviço_prioriza"}, inplace=True)
-    # Filtra apenas onde Status == "Microplanejamento"
-    df = df[df["Status"].isin(["Microplanejamento", "Falta material", "TO GPI - Aguarda TRIA","Programável","TM GPI - Aguarda MAN"])]
-
+    # Filtra apenas onde Status está em uma das opções desejadas
+    df = df[df["Status"].isin(["Microplanejamento", "Falta material", "TO GPI - Aguarda TRIA", "Programável", "TM GPI - Aguarda MAN"])]
     return df
 
 # --- ESTADO DA SESSÃO ---
+if "ordem_input" not in st.session_state:
+    st.session_state["ordem_input"] = ""
 if "last_ordem" not in st.session_state:
     st.session_state["last_ordem"] = ""
 if "planejador_input" not in st.session_state:
     st.session_state["planejador_input"] = ""
-if "status_input" not in st.session_state:
+if "status_input" not in st.session_state or not st.session_state["status_input"]:
     st.session_state["status_input"] = []
 if "info_input" not in st.session_state:
     st.session_state["info_input"] = ""
 if "confirm_delete" not in st.session_state:
     st.session_state["confirm_delete"] = False
 
-# --- SIDEBAR ---
+# --- SIDEBAR: Cadastro/Atualização ---
 st.sidebar.header("Atribuir Ordem")
 ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
-status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Proposta Pacotes","Concluído"]
+status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Proposta Pacotes", "Concluído"]
 
 if ordem:
     df_status_temp = load_data()
-    if ordem in df_status_temp["Ordem"].astype(str).values:
+    if ordem.strip() in df_status_temp["Ordem"].astype(str).str.strip().values:
         st.sidebar.info("Esta ordem já existe. Ao salvar, os dados serão atualizados.")
 
 def clear_fields():
+    st.session_state["ordem_input"] = ""
     st.session_state["planejador_input"] = ""
     st.session_state["status_input"] = [status_options[0]]
     st.session_state["info_input"] = ""
+    st.session_state["last_ordem"] = ""
+    if hasattr(st, 'experimental_rerun'):
+        st.experimental_rerun()
 
 if ordem:
     st.sidebar.button("Limpar dados", on_click=clear_fields, key="limpar_dados")
@@ -72,8 +77,8 @@ if ordem:
     planejador_val = ""
     status_val = ""
     info_val = ""
-    if ordem in df_status["Ordem"].astype(str).values:
-        idx = df_status[df_status["Ordem"].astype(str) == ordem].index[0]
+    if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+        idx = df_status[df_status["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
         planejador_val = df_status.at[idx, "Planejador"]
         status_val = df_status.at[idx, "Status"]
         info_val = df_status.at[idx, "Informações"]
@@ -88,17 +93,15 @@ if ordem:
         st.session_state["last_ordem"] = ordem
     
     planejador_input = st.sidebar.text_input("Planejador", value=st.session_state["planejador_input"], key="planejador_input")
-    status_input = st.sidebar.multiselect("Status", options=status_options,
-                                          default=st.session_state["status_input"],
-                                          key="status_input")
+    status_input = st.sidebar.multiselect("Status", options=status_options, key="status_input")
     info_input = st.sidebar.text_area("Informações", value=st.session_state["info_input"], key="info_input")
     
     if st.sidebar.button("Salvar Atualização"):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         status_str = ", ".join(status_input)
         df_status = load_data()
-        if ordem in df_status["Ordem"].astype(str).values:
-            idx = df_status[df_status["Ordem"].astype(str) == ordem].index[0]
+        if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+            idx = df_status[df_status["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
             df_status.at[idx, "Planejador"] = planejador_input
             df_status.at[idx, "Status"] = status_str
             df_status.at[idx, "Informações"] = info_input
@@ -106,7 +109,7 @@ if ordem:
             st.sidebar.success("Ordem atualizada com sucesso!")
         else:
             new_row = pd.DataFrame({
-                "Ordem": [ordem],
+                "Ordem": [ordem.strip()],
                 "Planejador": [planejador_input],
                 "Status": [status_str],
                 "Informações": [info_input],
@@ -118,7 +121,6 @@ if ordem:
         if hasattr(st, 'experimental_rerun'):
             st.experimental_rerun()
     
-    # Botão para apagar a ordem com confirmação
     if st.sidebar.button("Apagar Ordem") and not st.session_state["confirm_delete"]:
         st.session_state["confirm_delete"] = True
 
@@ -127,8 +129,8 @@ if ordem:
         col1, col2 = st.sidebar.columns(2)
         if col1.button("Sim", key="delete_yes"):
             df_status = load_data()
-            if ordem in df_status["Ordem"].astype(str).values:
-                df_status = df_status[df_status["Ordem"].astype(str) != ordem]
+            if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+                df_status = df_status[df_status["Ordem"].astype(str).str.strip() != ordem.strip()]
                 save_data(df_status)
                 st.sidebar.success("Ordem apagada de ordens_status!")
             else:
@@ -140,30 +142,28 @@ if ordem:
             st.sidebar.info("Exclusão cancelada.")
             st.session_state["confirm_delete"] = False
 
-# --- ÁREA PRINCIPAL ---
+# --- ÁREA PRINCIPAL: Visualização ---
 st.header("Planejamento de Ordens")
-
 
 st.subheader("Filtro de GPM (visualização)")
 df_prioriza_for_filter = load_prioriza()
 gpm_values = df_prioriza_for_filter["GPM"].dropna().unique().tolist()
 selected_gpm = st.multiselect("Selecione GPM", options=gpm_values, key="gpm_filter_main")
 
-# Carrega dados para visualização
+# --- FILTRAGEM POR ORDEM ---
+filtro_ordem = ordem.strip() if ordem else None
+
 df_status = load_data()
 df_status = df_status.rename(columns={"Status": "Status_status"})
 df_prioriza = load_prioriza()
 
 df_merged = pd.merge(df_status, df_prioriza, on="Ordem", how="outer")
 
-# Garante a existência das colunas desejadas
-for col in ["Serviço_prioriza"]:
-    if col not in df_merged.columns:
-        df_merged[col] = ""
+if "Serviço_prioriza" not in df_merged.columns:
+    df_merged["Serviço_prioriza"] = ""
 
-colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM","Status", "Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Status","Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
-
 
 df_final = df_final.rename(columns={
     "Status_status": "Serviço_status",
@@ -173,5 +173,8 @@ df_final = df_final.rename(columns={
 
 if selected_gpm:
     df_final = df_final[df_final["GPM"].isin(selected_gpm)]
+    
+if filtro_ordem:
+    df_final = df_final[df_final["Ordem"].astype(str).str.strip() == filtro_ordem]
     
 st.dataframe(df_final, use_container_width=True, height=600)
