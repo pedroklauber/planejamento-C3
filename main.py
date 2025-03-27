@@ -34,7 +34,8 @@ def load_prioriza():
     if "DESCRICAO" in df.columns and "Serviço_prioriza" not in df.columns:
         df.rename(columns={"DESCRICAO": "Serviço_prioriza"}, inplace=True)
     # Filtra apenas onde Status == "Microplanejamento"
-    df = df[df["Status"] == "Microplanejamento"]
+    #df = df[df["Status"].isin(["Microplanejamento", "OutroValor", "MaisUmValor"])]
+
     return df
 
 # --- ESTADO DA SESSÃO ---
@@ -160,7 +161,7 @@ for col in ["Serviço_prioriza"]:
     if col not in df_merged.columns:
         df_merged[col] = ""
 
-colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM","Status", "Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
 
 
