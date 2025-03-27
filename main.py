@@ -34,7 +34,7 @@ def load_prioriza():
     if "DESCRICAO" in df.columns and "Serviço_prioriza" not in df.columns:
         df.rename(columns={"DESCRICAO": "Serviço_prioriza"}, inplace=True)
     # Filtra apenas onde Status == "Microplanejamento"
-    #df = df[df["Status"].isin(["Microplanejamento", "OutroValor", "MaisUmValor"])]
+    df = df[df["Status"].isin(["Microplanejamento", "Falta material", "TO GPI - Aguarda TRIA","Programável","TM GPI - Aguarda MAN"])]
 
     return df
 
