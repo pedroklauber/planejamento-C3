@@ -52,7 +52,7 @@ if "confirm_delete" not in st.session_state:
 # --- SIDEBAR ---
 st.sidebar.header("Atribuir Ordem")
 ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
-status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Proposta Pacotes","Concluído"]
+status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Concluído"]
 
 if ordem:
     df_status_temp = load_data()
@@ -142,7 +142,6 @@ if ordem:
 # --- ÁREA PRINCIPAL ---
 st.header("Planejamento de Ordens")
 
-
 st.subheader("Filtro de GPM (visualização)")
 df_prioriza_for_filter = load_prioriza()
 gpm_values = df_prioriza_for_filter["GPM"].dropna().unique().tolist()
@@ -160,9 +159,8 @@ for col in ["Serviço_prioriza"]:
     if col not in df_merged.columns:
         df_merged[col] = ""
 
-colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
-
 
 df_final = df_final.rename(columns={
     "Status_status": "Serviço_status",
