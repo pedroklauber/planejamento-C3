@@ -6,7 +6,9 @@ from datetime import datetime
 # --- CONFIGURAÇÃO E ARQUIVOS ---
 st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 
-CSV_FILE = "ordens_status.csv"    # Banco de dados fixo onde os dados serão salvos
+Chave = "RSKG"
+
+CSV_FILE = f'C:\Users\{Chave}\PETROBRAS\Serviços Integrados de Rotina - Documentos\Rotina RECAP\ordens_status.csv'    # Banco de dados fixo onde os dados serão salvos
 CSV_PRIORIZA = "prioriza.csv"       # Banco de dados de referência (não alterado pelo formulário)
 
 if not os.path.exists(CSV_FILE):
