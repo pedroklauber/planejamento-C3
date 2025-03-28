@@ -2,47 +2,38 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
-from supabase import create_client, Client
 
-# --- CONFIGURAÇÃO DO SUPABASE ---
-supabase_url = st.secrets["supabase"]["SUPABASE_URL"]
-supabase_key = st.secrets["supabase"]["SUPABASE_KEY"]
-supabase: Client = create_client(supabase_url, supabase_key)
+# --- CONFIGURAÇÃO E ARQUIVOS ---
+st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 
-# --- ARQUIVOS ---
-# Tabela principal (ordens_status) será gerenciada no Supabase
-# O arquivo de referência (prioriza.csv) é mantido localmente
+CSV_FILE = "ordens_status.csv"    # Banco de dados fixo onde os dados serão salvos
+CSV_PRIORIZA = "prioriza.csv"       # Banco de dados de referência (não alterado pelo formulário)
 
-# --- FUNÇÕES PARA A TABELA "ordens_status" NO SUPABASE ---
-def load_data_supabase():
-    response = supabase.table("ordens_status").select("*").execute()
-    data = response.data if response.data is not None else []
-    df = pd.DataFrame(data)
-    if not df.empty:
-        df.columns = df.columns.str.strip()
+if not os.path.exists(CSV_FILE):
+    pd.DataFrame(columns=["Ordem", "Planejador", "Status", "Informações", "Última Atualização"]).to_csv(CSV_FILE, index=False)
+if not os.path.exists(CSV_PRIORIZA):
+    pd.DataFrame(columns=["ORDEM", "DESCRICAO", "GPM", "Status"]).to_csv(CSV_PRIORIZA, index=False)
+
+# --- FUNÇÕES DE LEITURA E SALVAMENTO ---
+def load_data():
+    df = pd.read_csv(CSV_FILE, dtype=str)
+    df.columns = df.columns.str.strip()
     return df
 
-def save_data_supabase(record):
-    # Upsert: insere ou atualiza com base na chave "Ordem"
-    response = supabase.table("ordens_status").upsert(record, on_conflict="Ordem").execute()
-    return response
+def save_data(df):
+    try:
+        df.to_csv(CSV_FILE, index=False)
+    except Exception as e:
+        st.error(f"Erro ao salvar o arquivo: {e}")
 
-def delete_data_supabase(ordem):
-    response = supabase.table("ordens_status").delete().eq("Ordem", ordem).execute()
-    return response
-
-# --- FUNÇÃO PARA CARREGAR O ARQUIVO LOCAL "prioriza.csv" (referência) ---
-def load_prioriza_local():
-    if os.path.exists("prioriza.csv"):
-        df = pd.read_csv("prioriza.csv", dtype=str)
-    else:
-        df = pd.DataFrame(columns=["ORDEM", "DESCRICAO", "GPM", "Status"])
+def load_prioriza():
+    df = pd.read_csv(CSV_PRIORIZA, dtype=str)
     df.columns = df.columns.str.strip()
     if "ORDEM" in df.columns:
         df.rename(columns={"ORDEM": "Ordem"}, inplace=True)
     if "DESCRICAO" in df.columns and "Serviço_prioriza" not in df.columns:
         df.rename(columns={"DESCRICAO": "Serviço_prioriza"}, inplace=True)
-    # Filtra somente as linhas com Status de interesse
+    # Utiliza apenas as linhas de interesse (apenas referência)
     df = df[df["Status"].isin(["Microplanejamento", "Falta material", "TO GPI - Aguarda TRIA", "Programável", "TM GPI - Aguarda MAN"])]
     return df
 
@@ -60,13 +51,13 @@ if "info_input" not in st.session_state:
 if "confirm_delete" not in st.session_state:
     st.session_state["confirm_delete"] = False
 
-# --- SIDEBAR: CADASTRO/ATUALIZAÇÃO ---
+# --- SIDEBAR: Cadastro/Atualização ---
 st.sidebar.header("Atribuir Ordem")
 ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
 status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Proposta Pacotes", "Concluído"]
 
 if ordem:
-    df_status_temp = load_data_supabase()
+    df_status_temp = load_data()
     if ordem.strip() in df_status_temp["Ordem"].astype(str).str.strip().values:
         st.sidebar.info("Esta ordem já existe. Ao salvar, os dados serão atualizados.")
 
@@ -76,13 +67,13 @@ def clear_fields():
     st.session_state["status_input"] = [status_options[0]]
     st.session_state["info_input"] = ""
     st.session_state["last_ordem"] = ""
-    st.experimental_rerun()
+    if hasattr(st, 'experimental_rerun'):
+        st.experimental_rerun()
 
 if ordem:
     st.sidebar.button("Limpar dados", on_click=clear_fields, key="limpar_dados")
     
-    # Carrega os dados da ordem, se existir
-    df_status = load_data_supabase()
+    df_status = load_data()
     planejador_val = ""
     status_val = ""
     info_val = ""
@@ -108,50 +99,69 @@ if ordem:
     if st.sidebar.button("Salvar Atualização"):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         status_str = ", ".join(status_input)
-        record = {
-            "Ordem": ordem.strip(),
-            "Planejador": planejador_input,
-            "Status": status_str,
-            "Informações": info_input,
-            "Última Atualização": now
-        }
-        save_data_supabase(record)
-        st.sidebar.success("Ordem salva com sucesso!")
-        st.experimental_rerun()
+        df_status = load_data()
+        if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+            idx = df_status[df_status["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
+            df_status.at[idx, "Planejador"] = planejador_input
+            df_status.at[idx, "Status"] = status_str
+            df_status.at[idx, "Informações"] = info_input
+            df_status.at[idx, "Última Atualização"] = now
+            st.sidebar.success("Ordem atualizada com sucesso!")
+        else:
+            new_row = pd.DataFrame({
+                "Ordem": [ordem.strip()],
+                "Planejador": [planejador_input],
+                "Status": [status_str],
+                "Informações": [info_input],
+                "Última Atualização": [now]
+            })
+            df_status = pd.concat([df_status, new_row], ignore_index=True)
+            st.sidebar.success("Nova ordem inserida com sucesso!")
+        save_data(df_status)
+        if hasattr(st, 'experimental_rerun'):
+            st.experimental_rerun()
     
     if st.sidebar.button("Apagar Ordem") and not st.session_state["confirm_delete"]:
         st.session_state["confirm_delete"] = True
+
     if st.session_state["confirm_delete"]:
         st.sidebar.write("Tem certeza que deseja apagar a ordem?")
         col1, col2 = st.sidebar.columns(2)
         if col1.button("Sim", key="delete_yes"):
-            delete_data_supabase(ordem.strip())
-            st.sidebar.success("Ordem apagada de ordens_status!")
+            df_status = load_data()
+            if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+                df_status = df_status[df_status["Ordem"].astype(str).str.strip() != ordem.strip()]
+                save_data(df_status)
+                st.sidebar.success("Ordem apagada de ordens_status!")
+            else:
+                st.sidebar.error("Ordem não encontrada em ordens_status!")
             st.session_state["confirm_delete"] = False
-            st.experimental_rerun()
+            if hasattr(st, 'experimental_rerun'):
+                st.experimental_rerun()
         if col2.button("Não", key="delete_no"):
             st.sidebar.info("Exclusão cancelada.")
             st.session_state["confirm_delete"] = False
 
-# --- ÁREA PRINCIPAL: VISUALIZAÇÃO ---
+# --- ÁREA PRINCIPAL: Visualização ---
 st.header("Planejamento de Ordens")
 st.subheader("Filtro de GPM (visualização)")
-df_prioriza_for_filter = load_prioriza_local()
+df_prioriza_for_filter = load_prioriza()
 gpm_values = df_prioriza_for_filter["GPM"].dropna().unique().tolist()
 selected_gpm = st.multiselect("Selecione GPM", options=gpm_values, key="gpm_filter_main")
 
-# Se um número de ordem for informado, filtramos para essa ordem; caso contrário, mostramos todos
+# --- FILTRAGEM POR ORDEM ---
 filtro_ordem = ordem.strip() if ordem else None
 
-df_status = load_data_supabase()
+df_status = load_data()
 df_status = df_status.rename(columns={"Status": "Status_status"})
-df_prioriza = load_prioriza_local()
+df_prioriza = load_prioriza()
 
 df_merged = pd.merge(df_status, df_prioriza, on="Ordem", how="outer")
+
 if "Serviço_prioriza" not in df_merged.columns:
     df_merged["Serviço_prioriza"] = ""
 
-colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM","Status", "Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
 
 df_final = df_final.rename(columns={
