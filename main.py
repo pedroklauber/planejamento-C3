@@ -6,10 +6,10 @@ from datetime import datetime
 # --- CONFIGURAÇÃO E ARQUIVOS ---
 st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 
-Chave = "RSKG"
+chave = "RSKG"
 
-CSV_FILE = "C:\Users\RSKG\PETROBRAS\Serviços Integrados de Rotina - Documentos\Rotina RECAP\ordens_status.csv"    # Banco de dados fixo onde os dados serão salvos
-CSV_PRIORIZA = "prioriza.csv"       # Banco de dados de referência (não alterado pelo formulário)
+CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
+CSV_PRIORIZA = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\prioriza.csv"
 
 if not os.path.exists(CSV_FILE):
     pd.DataFrame(columns=["Ordem", "Planejador", "Status", "Informações", "Última Atualização"]).to_csv(CSV_FILE, index=False)
@@ -163,7 +163,7 @@ df_merged = pd.merge(df_status, df_prioriza, on="Ordem", how="outer")
 if "Serviço_prioriza" not in df_merged.columns:
     df_merged["Serviço_prioriza"] = ""
 
-colunas_desejadas = ["Rank","Ordem", "Serviço_prioriza", "GPM","Status", "Planejador", "Status_status", "Informações", "Última Atualização"]
+colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status_status", "Informações", "Última Atualização"]
 df_final = df_merged[colunas_desejadas]
 
 df_final = df_final.rename(columns={
