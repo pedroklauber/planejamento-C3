@@ -163,6 +163,10 @@ if ordem:
 st.header("Planejamento de Ordens")
 st.subheader("Visualização de Ordens")
 
+# Filtro de GPM na área principal
+gpm_filter_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
+selected_gpm = st.multiselect("Selecione GPM", options=gpm_filter_options, key="gpm_filter_main")
+
 df_status = load_data()
 df_final = df_status.copy()
 colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status", "Informações", "Última Atualização"]
@@ -174,4 +178,7 @@ df_final = df_final.rename(columns={
     "Informações": "informações"
 })
 
+if selected_gpm:
+    df_final = df_final[df_final["GPM"].isin(selected_gpm)]
+    
 st.dataframe(df_final, use_container_width=True, height=600)
