@@ -6,8 +6,11 @@ from datetime import datetime
 # --- CONFIGURAÇÃO E ARQUIVOS ---
 st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 chave = "RSKG"
-CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
-CSV_PRIORIZA = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\prioriza.csv"
+CSV_FILE = "ordens_status.csv"
+CSV_PRIORIZA = "prioriza.csv"
+
+#CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
+#CSV_PRIORIZA = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\prioriza.csv"
 
 # Cria o arquivo com as colunas necessárias, se não existir
 if not os.path.exists(CSV_FILE):
