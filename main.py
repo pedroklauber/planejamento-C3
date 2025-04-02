@@ -9,8 +9,9 @@ chave = "RSKG"
 CSV_FILE = "ordens_status.csv"
 CSV_PRIORIZA = "prioriza.csv"
 
-#CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
-#CSV_PRIORIZA = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\prioriza.csv"
+# CSV_FILE e CSV_PRIORIZA com caminhos absolutos (caso necessário)
+# CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
+# CSV_PRIORIZA = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\prioriza.csv"
 
 # Cria o arquivo com as colunas necessárias, se não existir
 if not os.path.exists(CSV_FILE):
@@ -177,6 +178,12 @@ gpm_prioriza_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS
 selected_gpm_prioriza = st.multiselect("Filtrar Prioriza por GPM", options=gpm_prioriza_options, key="gpm_filter_prioriza")
 if selected_gpm_prioriza:
     df_final_prioriza = df_final_prioriza[df_final_prioriza["GPM"].isin(selected_gpm_prioriza)]
+
+# Novo filtro: Status na visualização Prioriza
+status_prioriza_options = sorted(df_final_prioriza["Status"].dropna().unique().tolist())
+selected_status_prioriza = st.multiselect("Filtrar Prioriza por Status", options=status_prioriza_options, key="status_filter_prioriza")
+if selected_status_prioriza:
+    df_final_prioriza = df_final_prioriza[df_final_prioriza["Status"].isin(selected_status_prioriza)]
 
 # Filtro por Número da Ordem – utilizando "contains" para permitir buscas parciais
 if ordem:
