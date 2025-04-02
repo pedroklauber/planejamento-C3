@@ -49,7 +49,7 @@ if "confirm_delete" not in st.session_state:
 
 # --- SIDEBAR: Cadastro/Atualização ---
 st.sidebar.header("Atribuir Ordem")
-# Ordem
+# Campo Número da Ordem
 ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
 
 # Se a ordem já existir, informar o usuário
@@ -165,10 +165,21 @@ st.header("Planejamento de Ordens")
 st.subheader("Ordens Prioriza")
 
 # Visualização Prioriza
-df_prioriza= pd.read_csv(CSV_PRIORIZA)
-colunas_uteis=['Rank','Ordem','DESCRICAO','GPM','Status','Prazo demanda']
-df_prioriza
+df_prioriza = pd.read_csv(CSV_PRIORIZA)
+colunas_uteis = ['Rank', 'ORDEM', 'DESCRICAO', 'GPM', 'Status', 'Prazo demanda']
+df_final_prioriza = df_prioriza[colunas_uteis]
 
+# Filtro de GPM para a visualização Prioriza
+gpm_prioriza_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
+selected_gpm_prioriza = st.multiselect("Filtrar Prioriza por GPM", options=gpm_prioriza_options, key="gpm_filter_prioriza")
+if selected_gpm_prioriza:
+    df_final_prioriza = df_final_prioriza[df_final_prioriza["GPM"].isin(selected_gpm_prioriza)]
+
+# Filtro por Número da Ordem – utilizando "contains" para permitir buscas parciais
+if ordem:
+    df_final_prioriza = df_final_prioriza[df_final_prioriza["ORDEM"].astype(str).str.strip().str.contains(ordem.strip(), na=False)]
+
+st.dataframe(df_final_prioriza, use_container_width=True, height=300)
 
 # Banco de Dados
 st.subheader("Visualização de Ordens")
@@ -190,5 +201,9 @@ df_final = df_final.rename(columns={
 
 if selected_gpm:
     df_final = df_final[df_final["GPM"].isin(selected_gpm)]
-    
+
+# Filtro por Número da Ordem – utilizando "contains" para permitir buscas parciais
+if ordem:
+    df_final = df_final[df_final["Ordem"].astype(str).str.strip().str.contains(ordem.strip(), na=False)]
+
 st.dataframe(df_final, use_container_width=True, height=600)
