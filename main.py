@@ -180,10 +180,10 @@ if selected_gpm_prioriza:
     df_final_prioriza = df_final_prioriza[df_final_prioriza["GPM"].isin(selected_gpm_prioriza)]
 
 # Novo filtro: Status na visualização Prioriza
-status_prioriza_options = sorted(df_final_prioriza["Status"].dropna().unique().tolist())
-selected_status_prioriza = st.multiselect("Filtrar Prioriza por Status", options=status_prioriza_options, key="status_filter_prioriza")
-if selected_status_prioriza:
-    df_final_prioriza = df_final_prioriza[df_final_prioriza["Status"].isin(selected_status_prioriza)]
+#status_prioriza_options = sorted(df_final_prioriza["Status"].dropna().unique().tolist())
+#selected_status_prioriza = st.multiselect("Filtrar Prioriza por Status", options=status_prioriza_options, key="status_filter_prioriza")
+#if selected_status_prioriza:
+#    df_final_prioriza = df_final_prioriza[df_final_prioriza["Status"].isin(selected_status_prioriza)]
 
 # Filtro por Número da Ordem – utilizando "contains" para permitir buscas parciais
 if ordem:
