@@ -102,7 +102,7 @@ if ordem:
     
     # Campos do formulário na ordem solicitada
     servico_input = st.sidebar.text_input("Serviço", value=st.session_state["servico_input"], key="servico_input")
-    gpm_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS","Cal"]
+    gpm_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
     gpm_input = st.sidebar.selectbox("GPM", options=gpm_options, index=gpm_options.index(st.session_state["gpm_input"]) if st.session_state["gpm_input"] in gpm_options else 0, key="gpm_input")
     planejador_input = st.sidebar.text_input("Planejador", value=st.session_state["planejador_input"], key="planejador_input")
     status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Proposta Pacotes", "Concluído"]
