@@ -91,13 +91,14 @@ if ordem:
     if pd.isna(status_val) or status_val == "": status_val = ""
     if pd.isna(info_val): info_val = ""
     
-    # Atualiza os valores na sessão sempre que uma ordem for informada
-    st.session_state["servico_input"] = servico_val
-    st.session_state["gpm_input"] = gpm_val if gpm_val else "CAL"
-    st.session_state["planejador_input"] = planejador_val
-    st.session_state["status_input"] = [s.strip() for s in status_val.split(",")] if status_val else ["Em planejamento"]
-    st.session_state["info_input"] = info_val
-    st.session_state["last_ordem"] = ordem
+    # Atualiza os valores na sessão se a ordem mudou
+    if st.session_state.get("last_ordem") != ordem:
+        st.session_state["servico_input"] = servico_val
+        st.session_state["gpm_input"] = gpm_val if gpm_val else "CAL"
+        st.session_state["planejador_input"] = planejador_val
+        st.session_state["status_input"] = [s.strip() for s in status_val.split(",")] if status_val else ["Em planejamento"]
+        st.session_state["info_input"] = info_val
+        st.session_state["last_ordem"] = ordem
     
     # Campos do formulário na ordem solicitada
     servico_input = st.sidebar.text_input("Serviço", value=st.session_state["servico_input"], key="servico_input")
