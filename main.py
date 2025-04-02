@@ -7,6 +7,7 @@ from datetime import datetime
 st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 chave = "RSKG"
 CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
+CSV_PRIORIZA = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\prioriza.csv"
 
 # Cria o arquivo com as colunas necessárias, se não existir
 if not os.path.exists(CSV_FILE):
@@ -161,6 +162,15 @@ if ordem:
 
 # --- ÁREA PRINCIPAL: Visualização ---
 st.header("Planejamento de Ordens")
+st.subheader("Ordens Prioriza")
+
+# Visualização Prioriza
+df_prioriza= pd.read_csv(CSV_PRIORIZA)
+colunas_uteis=['Rank','Ordem','DESCRICAO','GPM','Status','Prazo demanda']
+df_prioriza
+
+
+# Banco de Dados
 st.subheader("Visualização de Ordens")
 
 # Filtro de GPM na área principal
