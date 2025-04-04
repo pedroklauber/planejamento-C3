@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from supabase import create_client, Client
-import supabase
 
 # --- CONFIGURAÇÃO DO SUPABASE ---
 supabase_url = st.secrets["supabase"]["SUPABASE_URL"]
