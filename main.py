@@ -1,131 +1,178 @@
 import streamlit as st
 import pandas as pd
+import os
 from datetime import datetime
-from supabase import create_client, Client
 
-# --- CONFIGURAÇÃO DO SUPABASE ---
-supabase_url = st.secrets["supabase"]["SUPABASE_URL"]
-supabase_key = st.secrets["supabase"]["SUPABASE_KEY"]
-supabase: Client = create_client(supabase_url, supabase_key)
+# --- CONFIGURAÇÃO E ARQUIVOS ---
+st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
+chave = "RSKG"
+CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
 
-# --- FUNÇÕES DE ACESSO AO BANCO DE DADOS (TABELA "ordens_status") ---
-def load_data_supabase():
-    response = supabase.table("ordens_status").select("*").execute()
-    data = response.data if response.data is not None else []
-    df = pd.DataFrame(data)
-    if not df.empty:
-        df.columns = df.columns.str.strip()
+# Cria o arquivo com as colunas necessárias, se não existir
+if not os.path.exists(CSV_FILE):
+    pd.DataFrame(columns=["Ordem", "Planejador", "Status", "Informações", "Última Atualização", "Serviço_prioriza", "GPM"]).to_csv(CSV_FILE, index=False)
+
+# --- FUNÇÕES DE LEITURA E SALVAMENTO ---
+def load_data():
+    df = pd.read_csv(CSV_FILE, dtype=str)
+    df.columns = df.columns.str.strip()
+    # Garante que as novas colunas existam
+    for col in ["Serviço_prioriza", "GPM"]:
+        if col not in df.columns:
+            df[col] = ""
     return df
 
-def save_data_supabase(record):
-    # Upsert: insere ou atualiza com base na chave "Ordem"
-    response = supabase.table("ordens_status").upsert(record, on_conflict="Ordem").execute()
-    return response
+def save_data(df):
+    try:
+        df.to_csv(CSV_FILE, index=False)
+    except Exception as e:
+        st.error(f"Erro ao salvar o arquivo: {e}")
 
-def delete_data_supabase(ordem):
-    response = supabase.table("ordens_status").delete().eq("Ordem", ordem).execute()
-    return response
+# --- ESTADO DA SESSÃO ---
+if "ordem_input" not in st.session_state:
+    st.session_state["ordem_input"] = ""
+if "last_ordem" not in st.session_state:
+    st.session_state["last_ordem"] = ""
+if "planejador_input" not in st.session_state:
+    st.session_state["planejador_input"] = ""
+if "status_input" not in st.session_state or not st.session_state["status_input"]:
+    st.session_state["status_input"] = ["Em planejamento"]
+if "info_input" not in st.session_state:
+    st.session_state["info_input"] = ""
+if "servico_prioriza_input" not in st.session_state:
+    st.session_state["servico_prioriza_input"] = ""
+if "gpm_input" not in st.session_state:
+    st.session_state["gpm_input"] = ""
+if "confirm_delete" not in st.session_state:
+    st.session_state["confirm_delete"] = False
 
-
-# --- ESTADO DA SESSÃO (INICIALIZAÇÃO) ---
-for key, default in [
-    ("ordem_input", ""),
-    ("last_ordem", ""),
-    ("servico_input", ""),
-    ("gpm_input", "CAL"),
-    ("planejador_input", ""),
-    ("status_input", ["Em planejamento"]),
-    ("info_input", ""),
-    ("confirm_delete", False),
-]:
-    if key not in st.session_state:
-        st.session_state[key] = default
-
-# --- SIDEBAR: CADASTRO/ATUALIZAÇÃO ---
+# --- SIDEBAR: Cadastro/Atualização ---
 st.sidebar.header("Atribuir Ordem")
 ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
+status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Proposta Pacotes", "Concluído"]
 
-status_options = [
-    "Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais",
-    "Definição MA", "SMS", "Outros", "Proposta Pacotes", "Concluído"
-]
-gpm_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
-
-# Se uma ordem for digitada, pré-carrega os dados existentes do Supabase
 if ordem:
-    df = load_data_supabase()
-    if ordem.strip() in df["Ordem"].astype(str).str.strip().values:
-        idx = df[df["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
-        if st.session_state["last_ordem"] != ordem:
-            st.session_state["servico_input"] = df.at[idx, "Serviço"] if pd.notna(df.at[idx, "Serviço"]) else ""
-            st.session_state["gpm_input"] = (
-                df.at[idx, "GPM"] if pd.notna(df.at[idx, "GPM"]) and df.at[idx, "GPM"] in gpm_options else "CAL"
-            )
-            st.session_state["planejador_input"] = df.at[idx, "Planejador"] if pd.notna(df.at[idx, "Planejador"]) else ""
-            st.session_state["status_input"] = (
-                [s.strip() for s in df.at[idx, "Status"].split(",")] if pd.notna(df.at[idx, "Status"]) else [status_options[0]]
-            )
-            st.session_state["info_input"] = df.at[idx, "Informações"] if pd.notna(df.at[idx, "Informações"]) else ""
-            st.session_state["last_ordem"] = ordem
-    st.sidebar.info("Se a ordem não existir, insira os dados para uma nova ordem.")
+    df_status_temp = load_data()
+    if ordem.strip() in df_status_temp["Ordem"].astype(str).str.strip().values:
+        st.sidebar.info("Esta ordem já existe. Ao salvar, os dados serão atualizados.")
 
-# Criação dos widgets (os valores serão lidos automaticamente do st.session_state via key)
-servico_input = st.sidebar.text_input("Serviço", key="servico_input")
-if st.session_state["gpm_input"] in gpm_options:
-    gpm_index = gpm_options.index(st.session_state["gpm_input"])
-else:
-    gpm_index = 0
-gpm_input = st.sidebar.selectbox("GPM", options=gpm_options, index=gpm_index, key="gpm_input")
-planejador_input = st.sidebar.text_input("Planejador", key="planejador_input")
-status_input = st.sidebar.multiselect("Status", options=status_options, key="status_input")
-info_input = st.sidebar.text_area("Informações", key="info_input")
-
-# Botão para limpar os dados
-if st.sidebar.button("Limpar dados"):
-    # Redireciona para a mesma página com o parâmetro de query "clear=true"
-    st.experimental_set_query_params(clear="true")
-    st.experimental_rerun()
-
-# Botão para salvar/atualizar a ordem
-if st.sidebar.button("Salvar Atualização"):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    status_str = ", ".join(status_input)
-    record = {
-        "Ordem": ordem.strip(),
-        "Serviço": servico_input,
-        "GPM": gpm_input,
-        "Planejador": planejador_input,
-        "Status": status_str,
-        "Informações": info_input,
-        "Última Atualização": now
-    }
-    # Realiza o upsert no Supabase
-    save_data_supabase(record)
-    st.sidebar.success("Ordem salva com sucesso!")
-    st.experimental_rerun()
-
-# Botão para apagar a ordem (com confirmação)
-if st.sidebar.button("Apagar Ordem") and not st.session_state["confirm_delete"]:
-    st.session_state["confirm_delete"] = True
-if st.session_state["confirm_delete"]:
-    st.sidebar.write("Tem certeza que deseja apagar a ordem?")
-    col1, col2 = st.sidebar.columns(2)
-    if col1.button("Sim", key="delete_yes"):
-        delete_data_supabase(ordem.strip())
-        st.sidebar.success("Ordem apagada com sucesso!")
-        st.session_state["confirm_delete"] = False
+def clear_fields():
+    st.session_state["ordem_input"] = ""
+    st.session_state["planejador_input"] = ""
+    st.session_state["status_input"] = [status_options[0]]
+    st.session_state["info_input"] = ""
+    st.session_state["servico_prioriza_input"] = ""
+    st.session_state["gpm_input"] = ""
+    st.session_state["last_ordem"] = ""
+    if hasattr(st, 'experimental_rerun'):
         st.experimental_rerun()
-    if col2.button("Não", key="delete_no"):
-        st.sidebar.info("Exclusão cancelada.")
-        st.session_state["confirm_delete"] = False
 
-# --- ÁREA PRINCIPAL: VISUALIZAÇÃO ---
+if ordem:
+    st.sidebar.button("Limpar dados", on_click=clear_fields, key="limpar_dados")
+    
+    df_status = load_data()
+    planejador_val = ""
+    status_val = ""
+    info_val = ""
+    servico_prioriza_val = ""
+    gpm_val = ""
+    if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+        idx = df_status[df_status["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
+        planejador_val = df_status.at[idx, "Planejador"]
+        status_val = df_status.at[idx, "Status"]
+        info_val = df_status.at[idx, "Informações"]
+        servico_prioriza_val = df_status.at[idx, "Serviço_prioriza"]
+        gpm_val = df_status.at[idx, "GPM"]
+    if pd.isna(planejador_val): planejador_val = ""
+    if pd.isna(status_val) or status_val == "": status_val = ""
+    if pd.isna(info_val): info_val = ""
+    if pd.isna(servico_prioriza_val): servico_prioriza_val = ""
+    if pd.isna(gpm_val): gpm_val = ""
+    
+    if st.session_state.get("last_ordem") != ordem:
+        st.session_state["planejador_input"] = planejador_val
+        st.session_state["status_input"] = [s.strip() for s in status_val.split(",")] if status_val else [status_options[0]]
+        st.session_state["info_input"] = info_val
+        st.session_state["servico_prioriza_input"] = servico_prioriza_val
+        st.session_state["gpm_input"] = gpm_val
+        st.session_state["last_ordem"] = ordem
+    
+    planejador_input = st.sidebar.text_input("Planejador", value=st.session_state["planejador_input"], key="planejador_input")
+    status_input = st.sidebar.multiselect("Status", options=status_options, key="status_input")
+    info_input = st.sidebar.text_area("Informações", value=st.session_state["info_input"], key="info_input")
+    servico_prioriza_input = st.sidebar.text_input("Serviço Prioriza", value=st.session_state["servico_prioriza_input"], key="servico_prioriza_input")
+    gpm_input = st.sidebar.text_input("GPM", value=st.session_state["gpm_input"], key="gpm_input")
+    
+    if st.sidebar.button("Salvar Atualização"):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        status_str = ", ".join(status_input)
+        df_status = load_data()
+        if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+            idx = df_status[df_status["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
+            df_status.at[idx, "Planejador"] = planejador_input
+            df_status.at[idx, "Status"] = status_str
+            df_status.at[idx, "Informações"] = info_input
+            df_status.at[idx, "Serviço_prioriza"] = servico_prioriza_input
+            df_status.at[idx, "GPM"] = gpm_input
+            df_status.at[idx, "Última Atualização"] = now
+            st.sidebar.success("Ordem atualizada com sucesso!")
+        else:
+            new_row = pd.DataFrame({
+                "Ordem": [ordem.strip()],
+                "Planejador": [planejador_input],
+                "Status": [status_str],
+                "Informações": [info_input],
+                "Serviço_prioriza": [servico_prioriza_input],
+                "GPM": [gpm_input],
+                "Última Atualização": [now]
+            })
+            df_status = pd.concat([df_status, new_row], ignore_index=True)
+            st.sidebar.success("Nova ordem inserida com sucesso!")
+        save_data(df_status)
+        if hasattr(st, 'experimental_rerun'):
+            st.experimental_rerun()
+    
+    if st.sidebar.button("Apagar Ordem") and not st.session_state["confirm_delete"]:
+        st.session_state["confirm_delete"] = True
+
+    if st.session_state["confirm_delete"]:
+        st.sidebar.write("Tem certeza que deseja apagar a ordem?")
+        col1, col2 = st.sidebar.columns(2)
+        if col1.button("Sim", key="delete_yes"):
+            df_status = load_data()
+            if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+                df_status = df_status[df_status["Ordem"].astype(str).str.strip() != ordem.strip()]
+                save_data(df_status)
+                st.sidebar.success("Ordem apagada!")
+            else:
+                st.sidebar.error("Ordem não encontrada!")
+            st.session_state["confirm_delete"] = False
+            if hasattr(st, 'experimental_rerun'):
+                st.experimental_rerun()
+        if col2.button("Não", key="delete_no"):
+            st.sidebar.info("Exclusão cancelada.")
+            st.session_state["confirm_delete"] = False
+
+# --- ÁREA PRINCIPAL: Visualização ---
 st.header("Planejamento de Ordens")
-filtro_ordem = ordem.strip() if ordem else None
-df = load_data_supabase()
-# Reordena as colunas conforme desejado
-colunas_ordem = ["Ordem", "Serviço", "GPM", "Planejador", "Status", "Informações", "Última Atualização"]
-df = df[colunas_ordem]
-if filtro_ordem:
-    df = df[df["Ordem"].astype(str).str.strip() == filtro_ordem]
-st.dataframe(df, use_container_width=True, height=600)
+st.subheader("Filtro de GPM (visualização)")
+df_status = load_data()
+gpm_values = df_status["GPM"].dropna().unique().tolist()
+selected_gpm = st.multiselect("Selecione GPM", options=gpm_values, key="gpm_filter_main")
+
+df_final = df_status.copy()
+colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status", "Informações", "Última Atualização"]
+df_final = df_final[colunas_desejadas]
+df_final = df_final.rename(columns={
+    "Status": "Serviço_status",
+    "Última Atualização": "ultima atualização",
+    "Informações": "informações"
+})
+
+if selected_gpm:
+    df_final = df_final[df_final["GPM"].isin(selected_gpm)]
+    
+if ordem:
+    df_final = df_final[df_final["Ordem"].astype(str).str.strip() == ordem.strip()]
+    
+st.dataframe(df_final, use_container_width=True, height=600)
