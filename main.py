@@ -5,19 +5,24 @@ from datetime import datetime
 
 # --- CONFIGURAÇÃO E ARQUIVOS ---
 st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
+chave = "RSKG"
 CSV_FILE = "ordens_status.csv"
+CSV_PRIORIZA = "prioriza.csv"
 
+# CSV_FILE e CSV_PRIORIZA com caminhos absolutos (caso necessário)
+#CSV_FILE = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\ordens_status.csv"
+#CSV_PRIORIZA = f"C:\\Users\\{chave}\\PETROBRAS\\Serviços Integrados de Rotina - Documentos\\Rotina RECAP\\prioriza.csv"
+
+# Cria o arquivo com as colunas necessárias, se não existir
 if not os.path.exists(CSV_FILE):
-    pd.DataFrame(
-        columns=["Ordem", "Serviço", "GPM", "Planejador", "Status", "Informações", "Última Atualização"]
-    ).to_csv(CSV_FILE, index=False)
+    pd.DataFrame(columns=["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status", "Informações", "Última Atualização"]).to_csv(CSV_FILE, index=False)
 
 # --- FUNÇÕES DE LEITURA E SALVAMENTO ---
 def load_data():
     df = pd.read_csv(CSV_FILE, dtype=str)
     df.columns = df.columns.str.strip()
-    # Garante que as colunas "Serviço" e "GPM" existam
-    for col in ["Serviço", "GPM"]:
+    # Garante que as novas colunas existam
+    for col in ["Serviço_prioriza", "GPM"]:
         if col not in df.columns:
             df[col] = ""
     return df
@@ -39,15 +44,26 @@ if "gpm_input" not in st.session_state:
     st.session_state["gpm_input"] = "CAL"
 if "planejador_input" not in st.session_state:
     st.session_state["planejador_input"] = ""
-if "status_input" not in st.session_state:
+if "status_input" not in st.session_state or not st.session_state["status_input"]:
     st.session_state["status_input"] = ["Em planejamento"]
 if "info_input" not in st.session_state:
     st.session_state["info_input"] = ""
 if "confirm_delete" not in st.session_state:
     st.session_state["confirm_delete"] = False
 
-# --- FUNÇÃO PARA LIMPAR OS CAMPOS ---
-def clear_all():
+# --- SIDEBAR: Cadastro/Atualização ---
+st.sidebar.header("Atribuir Ordem")
+# Campo Número da Ordem
+ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
+
+# Se a ordem já existir, informar o usuário
+if ordem:
+    df_status_temp = load_data()
+    if ordem.strip() in df_status_temp["Ordem"].astype(str).str.strip().values:
+        st.sidebar.info("Esta ordem já existe. Ao salvar, os dados serão atualizados.")
+
+# Função para limpar os campos
+def clear_fields():
     st.session_state["ordem_input"] = ""
     st.session_state["servico_input"] = ""
     st.session_state["gpm_input"] = "CAL"
@@ -55,101 +71,149 @@ def clear_all():
     st.session_state["status_input"] = ["Em planejamento"]
     st.session_state["info_input"] = ""
     st.session_state["last_ordem"] = ""
-    if hasattr(st, "experimental_rerun"):
+    if hasattr(st, 'experimental_rerun'):
         st.experimental_rerun()
-
-# --- SIDEBAR: CADASTRO/ATUALIZAÇÃO ---
-st.sidebar.header("Atribuir Ordem")
-ordem = st.sidebar.text_input("Número da Ordem", key="ordem_input")
-
-status_options = [
-    "Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais",
-    "Definição MA", "SMS", "Outros", "Proposta Pacotes", "Concluído"
-]
-gpm_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
 
 if ordem:
-    df = load_data()
-    if ordem.strip() in df["Ordem"].astype(str).str.strip().values:
-        idx = df[df["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
-        if st.session_state["last_ordem"] != ordem:
-            st.session_state["servico_input"] = df.at[idx, "Serviço"] if pd.notna(df.at[idx, "Serviço"]) else ""
-            st.session_state["gpm_input"] = df.at[idx, "GPM"] if pd.notna(df.at[idx, "GPM"]) and df.at[idx, "GPM"] in gpm_options else "CAL"
-            st.session_state["planejador_input"] = df.at[idx, "Planejador"] if pd.notna(df.at[idx, "Planejador"]) else ""
-            st.session_state["status_input"] = (
-                [s.strip() for s in df.at[idx, "Status"].split(",")] if pd.notna(df.at[idx, "Status"]) else [status_options[0]]
-            )
-            st.session_state["info_input"] = df.at[idx, "Informações"] if pd.notna(df.at[idx, "Informações"]) else ""
-            st.session_state["last_ordem"] = ordem
-    st.sidebar.info("Se a ordem não existir, insira os dados para uma nova ordem.")
-
-# Widgets (os valores já estarão em st.session_state, então não usamos o parâmetro value)
-servico_input = st.sidebar.text_input("Serviço", key="servico_input")
-if st.session_state["gpm_input"] in gpm_options:
-    gpm_index = gpm_options.index(st.session_state["gpm_input"])
-else:
-    gpm_index = 0
-gpm_input = st.sidebar.selectbox("GPM", options=gpm_options, index=gpm_index, key="gpm_input")
-planejador_input = st.sidebar.text_input("Planejador", key="planejador_input")
-status_input = st.sidebar.multiselect("Status", options=status_options, key="status_input")
-info_input = st.sidebar.text_area("Informações", key="info_input")
-
-if st.sidebar.button("Limpar dados"):
-    clear_all()
-
-if st.sidebar.button("Salvar Atualização"):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    status_str = ", ".join(status_input)
-    df = load_data()
-    if ordem.strip() in df["Ordem"].astype(str).str.strip().values:
-        idx = df[df["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
-        df.at[idx, "Serviço"] = servico_input
-        df.at[idx, "GPM"] = gpm_input
-        df.at[idx, "Planejador"] = planejador_input
-        df.at[idx, "Status"] = status_str
-        df.at[idx, "Informações"] = info_input
-        df.at[idx, "Última Atualização"] = now
-        st.sidebar.success("Ordem atualizada com sucesso!")
-    else:
-        new_row = pd.DataFrame({
-            "Ordem": [ordem.strip()],
-            "Serviço": [servico_input],
-            "GPM": [gpm_input],
-            "Planejador": [planejador_input],
-            "Status": [status_str],
-            "Informações": [info_input],
-            "Última Atualização": [now]
-        })
-        df = pd.concat([df, new_row], ignore_index=True)
-        st.sidebar.success("Nova ordem inserida com sucesso!")
-    save_data(df)
-    if hasattr(st, "experimental_rerun"):
-        st.experimental_rerun()
-
-if st.sidebar.button("Apagar Ordem") and not st.session_state["confirm_delete"]:
-    st.session_state["confirm_delete"] = True
-if st.session_state["confirm_delete"]:
-    st.sidebar.write("Tem certeza que deseja apagar a ordem?")
-    col1, col2 = st.sidebar.columns(2)
-    if col1.button("Sim", key="delete_yes"):
-        df = load_data()
-        if ordem.strip() in df["Ordem"].astype(str).str.strip().values:
-            df = df[df["Ordem"].astype(str).str.strip() != ordem.strip()]
-            save_data(df)
-            st.sidebar.success("Ordem apagada com sucesso!")
+    st.sidebar.button("Limpar dados", on_click=clear_fields, key="limpar_dados")
+    
+    df_status = load_data()
+    servico_val = ""
+    gpm_val = ""
+    planejador_val = ""
+    status_val = ""
+    info_val = ""
+    if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+        idx = df_status[df_status["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
+        servico_val = df_status.at[idx, "Serviço_prioriza"]
+        gpm_val = df_status.at[idx, "GPM"]
+        planejador_val = df_status.at[idx, "Planejador"]
+        status_val = df_status.at[idx, "Status"]
+        info_val = df_status.at[idx, "Informações"]
+    if pd.isna(servico_val): servico_val = ""
+    if pd.isna(gpm_val): gpm_val = ""
+    if pd.isna(planejador_val): planejador_val = ""
+    if pd.isna(status_val) or status_val == "": status_val = ""
+    if pd.isna(info_val): info_val = ""
+    
+    # Atualiza os valores na sessão se a ordem mudou
+    if st.session_state.get("last_ordem") != ordem:
+        st.session_state["servico_input"] = servico_val
+        st.session_state["gpm_input"] = gpm_val if gpm_val else "CAL"
+        st.session_state["planejador_input"] = planejador_val
+        st.session_state["status_input"] = [s.strip() for s in status_val.split(",")] if status_val else ["Em planejamento"]
+        st.session_state["info_input"] = info_val
+        st.session_state["last_ordem"] = ordem
+    
+    # Campos do formulário na ordem solicitada
+    servico_input = st.sidebar.text_input("Serviço", value=st.session_state["servico_input"], key="servico_input")
+    gpm_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
+    gpm_input = st.sidebar.selectbox("GPM", options=gpm_options, index=gpm_options.index(st.session_state["gpm_input"]) if st.session_state["gpm_input"] in gpm_options else 0, key="gpm_input")
+    planejador_input = st.sidebar.text_input("Planejador", value=st.session_state["planejador_input"], key="planejador_input")
+    status_options = ["Em planejamento", "AR", "Doc CQ", "IBTUG", "Materiais", "Definição MA", "SMS", "Outros", "Proposta Pacotes", "Concluído"]
+    status_input = st.sidebar.multiselect("Status", options=status_options, key="status_input")
+    info_input = st.sidebar.text_area("Informações", value=st.session_state["info_input"], key="info_input")
+    
+    if st.sidebar.button("Salvar Atualização"):
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        status_str = ", ".join(status_input)
+        df_status = load_data()
+        if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+            idx = df_status[df_status["Ordem"].astype(str).str.strip() == ordem.strip()].index[0]
+            df_status.at[idx, "Serviço_prioriza"] = servico_input
+            df_status.at[idx, "GPM"] = gpm_input
+            df_status.at[idx, "Planejador"] = planejador_input
+            df_status.at[idx, "Status"] = status_str
+            df_status.at[idx, "Informações"] = info_input
+            df_status.at[idx, "Última Atualização"] = now
+            st.sidebar.success("Ordem atualizada com sucesso!")
         else:
-            st.sidebar.error("Ordem não encontrada!")
-        st.session_state["confirm_delete"] = False
-        if hasattr(st, "experimental_rerun"):
+            new_row = pd.DataFrame({
+                "Ordem": [ordem.strip()],
+                "Serviço_prioriza": [servico_input],
+                "GPM": [gpm_input],
+                "Planejador": [planejador_input],
+                "Status": [status_str],
+                "Informações": [info_input],
+                "Última Atualização": [now]
+            })
+            df_status = pd.concat([df_status, new_row], ignore_index=True)
+            st.sidebar.success("Nova ordem inserida com sucesso!")
+        save_data(df_status)
+        if hasattr(st, 'experimental_rerun'):
             st.experimental_rerun()
-    if col2.button("Não", key="delete_no"):
-        st.sidebar.info("Exclusão cancelada.")
-        st.session_state["confirm_delete"] = False
+    
+    if st.sidebar.button("Apagar Ordem") and not st.session_state["confirm_delete"]:
+        st.session_state["confirm_delete"] = True
 
-# --- ÁREA PRINCIPAL: VISUALIZAÇÃO ---
+    if st.session_state["confirm_delete"]:
+        st.sidebar.write("Tem certeza que deseja apagar a ordem?")
+        col1, col2 = st.sidebar.columns(2)
+        if col1.button("Sim", key="delete_yes"):
+            df_status = load_data()
+            if ordem.strip() in df_status["Ordem"].astype(str).str.strip().values:
+                df_status = df_status[df_status["Ordem"].astype(str).str.strip() != ordem.strip()]
+                save_data(df_status)
+                st.sidebar.success("Ordem apagada!")
+            else:
+                st.sidebar.error("Ordem não encontrada!")
+            st.session_state["confirm_delete"] = False
+            if hasattr(st, 'experimental_rerun'):
+                st.experimental_rerun()
+        if col2.button("Não", key="delete_no"):
+            st.sidebar.info("Exclusão cancelada.")
+            st.session_state["confirm_delete"] = False
+
+# --- ÁREA PRINCIPAL: Visualização ---
 st.header("Planejamento de Ordens")
-filtro_ordem = ordem.strip() if ordem else None
-df = load_data()
-if filtro_ordem:
-    df = df[df["Ordem"].astype(str).str.strip() == filtro_ordem]
-st.dataframe(df, use_container_width=True, height=600)
+st.subheader("Ordens Prioriza")
+
+# Visualização Prioriza
+df_prioriza = pd.read_csv(CSV_PRIORIZA)
+colunas_uteis = ['ORDEM', 'DESCRICAO', 'GPM']
+df_final_prioriza = df_prioriza[colunas_uteis]
+
+# Filtro de GPM para a visualização Prioriza
+gpm_prioriza_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
+selected_gpm_prioriza = st.multiselect("Filtrar Prioriza por GPM", options=gpm_prioriza_options, key="gpm_filter_prioriza")
+if selected_gpm_prioriza:
+    df_final_prioriza = df_final_prioriza[df_final_prioriza["GPM"].isin(selected_gpm_prioriza)]
+
+# Novo filtro: Status na visualização Prioriza
+#status_prioriza_options = sorted(df_final_prioriza["Status"].dropna().unique().tolist())
+#selected_status_prioriza = st.multiselect("Filtrar Prioriza por Status", options=status_prioriza_options, key="status_filter_prioriza")
+#if selected_status_prioriza:
+#    df_final_prioriza = df_final_prioriza[df_final_prioriza["Status"].isin(selected_status_prioriza)]
+
+# Filtro por Número da Ordem – utilizando "contains" para permitir buscas parciais
+if ordem:
+    df_final_prioriza = df_final_prioriza[df_final_prioriza["ORDEM"].astype(str).str.strip().str.contains(ordem.strip(), na=False)]
+
+st.dataframe(df_final_prioriza, use_container_width=True, height=300)
+
+# Banco de Dados
+st.subheader("Visualização de Ordens")
+
+# Filtro de GPM na área principal
+gpm_filter_options = ["CAL", "COM", "MEC", "INS", "ELE", "MOV", "AUT", "OUTRAS"]
+selected_gpm = st.multiselect("Selecione GPM", options=gpm_filter_options, key="gpm_filter_main")
+
+df_status = load_data()
+df_final = df_status.copy()
+colunas_desejadas = ["Ordem", "Serviço_prioriza", "GPM", "Planejador", "Status", "Informações", "Última Atualização"]
+df_final = df_final[colunas_desejadas]
+df_final = df_final.rename(columns={
+    "Serviço_prioriza": "Serviço",
+    "Status": "Serviço_status",
+    "Última Atualização": "ultima atualização",
+    "Informações": "informações"
+})
+
+if selected_gpm:
+    df_final = df_final[df_final["GPM"].isin(selected_gpm)]
+
+# Filtro por Número da Ordem – utilizando "contains" para permitir buscas parciais
+if ordem:
+    df_final = df_final[df_final["Ordem"].astype(str).str.strip().str.contains(ordem.strip(), na=False)]
+
+st.dataframe(df_final, use_container_width=True, height=600)
