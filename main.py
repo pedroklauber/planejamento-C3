@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from supabase import create_client, Client
 import httpx
+from supabase.lib.client_options import ClientOptions
 
 
 # --- CONFIGURAÇÃO ---
@@ -12,13 +13,8 @@ st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-from supabase.lib.client_options import ClientOptions
 
-client_options = ClientOptions(
-http_client=httpx.Client(verify=False)  # ⚠️ Desativa SSL verification
-)
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY, options=client_options)
 
 
 
