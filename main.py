@@ -10,8 +10,8 @@ from supabase.lib.client_options import ClientOptions
 st.set_page_config(layout="wide", page_title="Planejamento das Ordens")
 
 # Conexão com Supabase
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+SUPABASE_URL = "https://jiranaejssohtmfydqbz.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppcmFuYWVqc3NvaHRtZnlkcWJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMxMTk2NTcsImV4cCI6MjA1ODY5NTY1N30.swAF_e2Chb4lePqXHwN7NjMbzPMVr8rok40ChdMJq2I"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
